@@ -9,6 +9,8 @@ import co.edu.ufps.tic_tac_toc_consola.negocio.FachadaSocket;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.Scanner;
 import java.util.regex.Pattern;
@@ -18,17 +20,31 @@ import java.util.regex.Pattern;
  * @author john
  */
 public class Cliente {
+    private static String recibido;
+    private static char[] cbuf;
     /**
      * @param args the command line arguments
      */
+    public static String recibirSocket (InputStreamReader in) throws IOException {
+        cbuf = new char[512];
+        recibido = "";
+        in.read(cbuf);
+        for (char c : cbuf) {
+            recibido += c;
+            if (c == 00) {
+                break;
+            }
+        }
+        return recibido;
+    }
     
     public static void main(String[] args) throws IOException {
         FachadaSocket fachada = new FachadaSocket();
-        Socket cliente = new Socket("localhost",8090);
-        DataOutputStream out = new DataOutputStream(cliente.getOutputStream());
-        DataInputStream in = new DataInputStream(cliente.getInputStream());
+        Socket cliente = new Socket("127.0.0.1",8090);
+        OutputStreamWriter out = new OutputStreamWriter(cliente.getOutputStream());
+        InputStreamReader in = new InputStreamReader(cliente.getInputStream(), "UTF8");
         Scanner sc = new Scanner(System.in);
-        String mensaje =  in.readUTF();
+        String mensaje = recibirSocket(in);
         /*
             Mensaje de confirmacion
         */
@@ -37,12 +53,13 @@ public class Cliente {
             /*
                 Pedira que envie el nombre de usuario
             */
-            out.writeUTF(sc.nextLine());
+            out.write(sc.nextLine());
+            out.flush();
             /*
                 Retornara el puntaje que lleva del usuario con el nombre enviado o
                 un false si el usuario ya inicio sesion en otro pc
             */
-            String puntaje = in.readUTF();
+            String puntaje = recibirSocket(in);
             if (puntaje.equalsIgnoreCase("false")) {
                 System.out.println("Este usuario ya inicio sesion en otro pc\n"
                         + "intentelo de nuevo");
@@ -55,7 +72,7 @@ public class Cliente {
             /*
                 Cuando todo este listo retornara un estado de la partida
             */
-            fachada.interpretarEstadoPartidaSencillo(in.readUTF());
+            fachada.interpretarEstadoPartidaSencillo(recibirSocket(in));
             System.out.println(fachada.mostrarTablero());
             if (fachada.getGanador() != null) {
                 System.out.println("Usted ha " + fachada.getGanador() + " esta Partida");
@@ -63,7 +80,7 @@ public class Cliente {
             /*
                 Esperando a que me den el turno
             */
-            System.out.println(in.readUTF());
+            System.out.println(recibirSocket(in));
             boolean columnaValida = true;
             String columna = "";
             String fila = "";
@@ -85,7 +102,7 @@ public class Cliente {
                         + "la cual quiere marcar...");
                 fila = sc.nextLine();
                 if (Pattern.matches("(0|1|2)", fila)) {
-                    movimiento += "," +fila;
+                    movimiento += "-" + fila;
                     filaValida = false;
                 } else {
                     System.out.println("Valor INVALIDO, intentelo de nuevo...");
@@ -94,11 +111,12 @@ public class Cliente {
             /*
                 Envia al servidor la coordenada que va a tachar
             */
-            out.writeUTF(movimiento);
+            out.write(movimiento);
+            out.flush();
             /*
                 Muestra el estado de la partida
             */
-            fachada.interpretarEstadoPartida(in.readUTF());
+            fachada.interpretarEstadoPartida(recibirSocket(in));
             System.out.println(fachada.mostrarTablero());
             if (fachada.getGanador() != null) {
                 System.out.println("Usted ha " + fachada.getGanador() + " esta Partida");
